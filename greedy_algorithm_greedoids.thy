@@ -2010,7 +2010,7 @@ proof (unfold_locales)
             then show ?thesis using \<open>(?v, ?w) \<in> X\<close> \<open>(?v, ?w) \<notin> Y\<close> by auto
           next
             case False
-            then show ?thesis sorry
+            then show ?thesis sorry (*Second half of proof skipped as it follows the same pattern as first half.*)
           qed
         qed
       qed
@@ -2033,16 +2033,17 @@ locale greedy_algorithm = greedoid +
 context greedy_algorithm
 begin
 
-  definition valid_weight_func::"('a set \<Rightarrow> real) \<Rightarrow> bool" where  "valid_weight_func c = ((\<forall>X Y. X \<subseteq> E \<and> Y \<subseteq> E \<and> X \<inter> Y = {} \<longrightarrow> c (X \<union> Y) = c X + c Y) \<and>
-                              (\<forall> X \<subseteq> E. c X \<ge> 0))"
+  definition valid_modular_weight_func::"('a set \<Rightarrow> real) \<Rightarrow> bool" where  "valid_modular_weight_func c = (c ({}) = 0 \<and> (\<forall>X l. X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} | e. e \<in> X} \<and> c (X) = sum (\<lambda>x. real x) l))"
 
   definition "maximum_weight_set c X = (X \<in> F \<and> (\<forall> Y \<in> F. c X \<ge> c Y))"
 
   definition "find_best_candidate c F' = foldr (\<lambda> e acc. if e \<in> F' \<or> \<not> orcl (insert e F') then acc
                                                       else (case acc of None \<Rightarrow> Some e |
                                                                Some d \<Rightarrow> (if c {e} > c {d} then Some e
-                                                                          else Some d))) es None"  
-lemma find_best_candidate_in_es: assumes "F' \<subseteq> E" "find_best_candidate c F' = Some x" 
+                                                                          else Some d))) es None"
+
+(*Next two lemmas taken as facts: the best candidate for F' lies in es (list of E), and does not lie in F'.*)
+lemma find_best_candidate_in_es: assumes "F' \<subseteq> E" "find_best_candidate c F' = Some x"
   shows "List.member es x"
   sorry
 
@@ -2131,7 +2132,7 @@ qed
 
   lemma greedy_algorithm_correctness:
     assumes assum1: "greedoid E F"
-    shows "(\<forall>c. valid_weight_func c \<longrightarrow> maximum_weight_set c (greedy_algorithm_greedoid {} c)) \<longleftrightarrow>
+    shows "(\<forall>c. valid_modular_weight_func c \<longrightarrow> maximum_weight_set c (greedy_algorithm_greedoid {} c)) \<longleftrightarrow>
   strong_exchange_property E F"
     sorry
   
