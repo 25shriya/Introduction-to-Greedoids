@@ -321,17 +321,32 @@ lemma set_union_ineq: assumes "valid_modular_weight_func c" "X \<in> F" "Y \<in>
   sorry
 
 lemma exists_maximal_weight_set: assumes "\<not> maximum_weight_set c (greedy_algorithm_greedoid {} c)" 
-"valid_modular_weight_func c" 
-shows "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y})) \<and> 
-distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length l \<and> X \<inter> set (take i l) \<noteq> {}))" 
-proof 
+"valid_modular_weight_func c" "greedoid E F"
+shows "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
+distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> X \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take j l)) \<subset> X) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subset> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j < length l \<and> (set (take j l)) \<subset> Y) \<and> k \<le> i))))" 
+proof -
   let ?A = "greedy_algorithm_greedoid {} c"
   have "?A \<in> F" using greedy_algo_in_F assms(2) by simp
   then have "?A \<subseteq> E" using ss_assum unfolding set_system_def by simp
   then have "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" using 
 accessible_property acc_assum \<open>?A \<in> F\<close> by blast
   then obtain l where l_prop: "set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" by auto
-  have ""
+  have "\<exists>X. maximum_weight_set c X" using max_weight_exists assms(2-3) by simp
+  then obtain B where "maximum_weight_set c B" by auto
+  have fact1: "(\<exists>i. i \<le> length l \<and> set (take i l) \<subset> B \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take j l)) \<subset> B) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subset> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j < length l \<and> (set (take j l)) \<subset> Y) \<and> k \<le> i)))"
+  proof (cases "\<forall>i. i \<le> length l \<and> B \<inter> set (take i l) = {}")
+    case True
+    then show ?thesis sorry
+  next
+    case False   
+    then show ?thesis sorry
+  qed
+  have fact2: "\<forall>i. i \<le> length l \<longrightarrow> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y})" sorry
+  then show ?thesis using l_prop \<open>maximum_weight_set c B\<close> fact1 
+      by (smt (verit))
+qed
 
   lemma greedy_algorithm_correctness:
     assumes assum1: "greedoid E F"
@@ -355,41 +370,38 @@ accessible_property acc_assum \<open>?A \<in> F\<close> by blast
           show "maximum_weight_set c (greedy_algorithm_greedoid {} c)"
           proof (rule ccontr)
             assume assum4: "\<not> maximum_weight_set c (greedy_algorithm_greedoid {} c)"
-            have "\<exists>X. maximum_weight_set c X" using max_weight_exists \<open>valid_modular_weight_func c\<close> \<open>greedoid E F\<close> by simp
-            then obtain B where "maximum_weight_set c B" by auto
             let ?A = "greedy_algorithm_greedoid {} c"
-            have "accessible E F" using greedoid_accessible assum1 by auto
-            have "B \<in> F" using \<open>maximum_weight_set c B\<close> unfolding maximum_weight_set_def by simp
-            then have "B \<subseteq> E" using ss_assum unfolding set_system_def by simp
-            then have "\<exists>l. set l = B \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" using accessible_property 
-                \<open>accessible E F\<close> \<open>B \<in> F\<close> by blast
-            then obtain l where l_prop: "set l = B \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" by auto
-            have "?A \<in> F" using assum3 greedy_algo_in_F by simp
-            then have "?A \<subseteq> E" using ss_assum unfolding set_system_def by simp
-            then have "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y})) \<and> 
-distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length l \<and> X \<inter> set (take i l) \<noteq> {}))"
-              using assum3 \<open>?A \<in> F\<close> exists_maximal_weight_set assum4 by simp
-            then obtain k where k_prop: "set k = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length k \<longrightarrow> set (take i k) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) k) \<union> {y} \<in> F \<longrightarrow> c {nth k i} \<ge> c {y})) \<and> 
-distinct k \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length k \<and> X \<inter> set (take i k) \<noteq> {}))"
+            have "accessible E F" using acc_assum by auto 
+            have "?A \<in> F" using greedy_algo_in_F using assum3 by simp
+            then have "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
+distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> X \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take i l)) \<subset> X) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. Y \<inter> set (take k l) = {} \<and> k < length l \<and> k \<le> i))))"
+              using assum3  exists_maximal_weight_set assum4 assms by auto
+            then obtain l where l_prop: "set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
+distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> X \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take i l)) \<subset> X) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. Y \<inter> set (take k l) = {} \<and> k < length l \<and> k \<le> i))))"
               by auto
-            have "maximal (\<lambda>Z. Z \<in> F) B" using maximum_weight_prop assum3 \<open>maximum_weight_set c B\<close> by simp
-            have "B \<noteq> ?A" using assum4 \<open>maximum_weight_set c B\<close> by auto
+            then obtain B where B_prop: "maximum_weight_set c B \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> B \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take i l)) \<subset> B) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. Y \<inter> set (take k l) = {} \<and> k < length l \<and> k \<le> i)))" by auto
+            then obtain k where "k \<le> length l \<and> set (take k l) \<subset> B \<and> (\<nexists>j. j > k \<and> j < length l \<and>  (set (take k l)) \<subset> B) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>i. Y \<inter> set (take i l) = {} \<and> i < length l \<and> i \<le> k))" by auto
+            have "maximal (\<lambda>Z. Z \<in> F) B" using maximum_weight_prop assum3 B_prop by simp
+            have "B \<in> F" using B_prop unfolding maximum_weight_set_def by simp
+            have "B \<noteq> ?A" using assum4 B_prop by auto
             show False
-            proof (cases "B = {}")
+            proof -
+              have ""
+            (*proof (cases "B = {}")
               case True
               then have "?A \<noteq> {}" using \<open>B \<noteq> ?A\<close> by simp
               then have "c ?A > c B" using assum3 weight_func_empty \<open>?A \<in> F\<close> True by simp
-              then show ?thesis using \<open>maximum_weight_set c B\<close> unfolding maximum_weight_set_def using \<open>?A \<in> F\<close> by auto
+              then show ?thesis using B_prop unfolding maximum_weight_set_def using \<open>?A \<in> F\<close> by auto
             next
               case False
               then have "?A \<noteq> {}" using assum3 \<open>B \<in> F\<close> greedy_algo_nonempty by simp
               have "l \<noteq> []" using l_prop False by auto
               show ?thesis
-              proof (cases "\<forall>i. i \<le> length k \<longrightarrow> B \<inter> set (take i k) = {}")
+              proof (cases "\<forall>i. i \<le> length l \<longrightarrow> B \<inter> set (take i l) = {}")
                 case True
                 have "{} \<subseteq> B" by simp
-                have "set k = ?A" using k_prop by simp
-                have "k \<noteq> []" using \<open>?A \<noteq> {}\<close> k_prop by auto
+                have "set l = ?A" using k_prop by simp
+                have "l \<noteq> []" using \<open>?A \<noteq> {}\<close> k_prop by auto
                 then obtain x where "(nth k 0) = x" 
                   by simp
                 then have "x \<in> ?A" using k_prop \<open>set k = ?A\<close> 
@@ -430,7 +442,7 @@ set_union_ineq assum3 \<open>B - {y} \<subseteq> E\<close> by blast
                 case False
                 then show ?thesis sorry
               qed
-            qed
+            qed *)
   
 
 
