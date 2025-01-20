@@ -79,16 +79,20 @@ proof -
   ultimately show "{nth l 0} = set (take 1 l)" by simp
 qed
 
-lemma first_element_set:
-  assumes "l \<noteq> []"
-  shows "{nth l 0} = set (take 1 l)"
+lemma set_take_union_nth:
+  assumes "i < length l"
+  shows "set (take i l) \<union> {nth l i} = set (take (i + 1) l)"
 proof -
-  from assms obtain a l' where l_def: "l = a # l'"
-    by (cases l) auto
-  then have "nth l 0 = a" by simp
-  moreover have "take 1 l = [a]" using l_def by simp
-  ultimately show "{nth l 0} = set (take 1 l)" by simp
+  have "take (i + 1) l = take i l @ [nth l i]"
+    using  take_Suc_conv_app_nth assms by simp
+  then have "set (take (i + 1) l) = set (take i l @ [nth l i])"
+    by simp
+  also have "... = set (take i l) \<union> set [nth l i]"
+    by simp
+  finally show ?thesis
+    by simp
 qed
+
 
 locale greedoid =
   fixes E :: "'a set"
@@ -137,8 +141,9 @@ proof -
                                                       else (case acc of None \<Rightarrow> Some e |
                                                                Some d \<Rightarrow> (if c {e} > c {d} then Some e
                                                                           else Some d))) es acc = Some x" by simp
-  then have "Some x = acc"
-  then have "x \<notin> F' \<and> orcl (insert x F')" 
+  show ?thesis
+    sorry
+qed
 
 function (domintros) greedy_algorithm_greedoid::"'a set \<Rightarrow> ('a set \<Rightarrow> real) \<Rightarrow> 'a set" where "greedy_algorithm_greedoid F' c = (if (E = {} \<or> \<not>(F' \<subseteq> E)) then undefined 
 else  (case  (find_best_candidate c F') of Some e => greedy_algorithm_greedoid(F' \<union> {the (find_best_candidate c F')}) c | None => F'))"
@@ -316,15 +321,16 @@ lemma greedy_algo_nonempty: assumes "valid_modular_weight_func c" "X \<in> F" "X
   sorry
 
 
-lemma set_union_ineq: assumes "valid_modular_weight_func c" "X \<in> F" "Y \<in> F" "c X \<ge> c Y" "Z \<subseteq> E"
-  shows "c (X \<union> Z) \<ge> c (Y \<union> Z)"
+lemma set_union_ineq: assumes "valid_modular_weight_func c" "e \<in> E" "f \<in> E" "c {e} \<ge> c {f}" "Z \<subseteq> E"
+"{e} \<union> Z \<in> F" "{f} \<union> Z \<in> F"
+shows "c ({e} \<union> Z) \<ge> c ({f} \<union> Z)"
   sorry
 
 lemma exists_maximal_weight_set: assumes "\<not> maximum_weight_set c (greedy_algorithm_greedoid {} c)" 
 "valid_modular_weight_func c" "greedoid E F"
 shows "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
-distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> X \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take j l)) \<subset> X) \<and> 
-(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subset> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j < length l \<and> (set (take j l)) \<subset> Y) \<and> k \<le> i))))" 
+distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length l \<and> set (take i l) \<subseteq> X \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> X) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i))))" 
 proof -
   let ?A = "greedy_algorithm_greedoid {} c"
   have "?A \<in> F" using greedy_algo_in_F assms(2) by simp
@@ -334,8 +340,8 @@ accessible_property acc_assum \<open>?A \<in> F\<close> by blast
   then obtain l where l_prop: "set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" by auto
   have "\<exists>X. maximum_weight_set c X" using max_weight_exists assms(2-3) by simp
   then obtain B where "maximum_weight_set c B" by auto
-  have fact1: "(\<exists>i. i \<le> length l \<and> set (take i l) \<subset> B \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take j l)) \<subset> B) \<and> 
-(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subset> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j < length l \<and> (set (take j l)) \<subset> Y) \<and> k \<le> i)))"
+  have fact1: "(\<exists>i. i < length l \<and> set (take i l) \<subseteq> B \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> B) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i)))"
   proof (cases "\<forall>i. i \<le> length l \<and> B \<inter> set (take i l) = {}")
     case True
     then show ?thesis sorry
@@ -374,20 +380,23 @@ qed
             have "accessible E F" using acc_assum by auto 
             have "?A \<in> F" using greedy_algo_in_F using assum3 by simp
             then have "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
-distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> X \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take i l)) \<subset> X) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. Y \<inter> set (take k l) = {} \<and> k < length l \<and> k \<le> i))))"
+distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length l \<and> set (take i l) \<subseteq> X \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> X) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i))))"
               using assum3  exists_maximal_weight_set assum4 assms by auto
             then obtain l where l_prop: "set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
-distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> X \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take i l)) \<subset> X) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. Y \<inter> set (take k l) = {} \<and> k < length l \<and> k \<le> i))))"
+distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length l \<and> set (take i l) \<subseteq> X \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> X) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i))))"
               by auto
-            then obtain B where B_prop: "maximum_weight_set c B \<and> (\<exists>i. i \<le> length l \<and> set (take i l) \<subset> B \<and> (\<nexists>j. j > i \<and> j < length l \<and> (set (take i l)) \<subset> B) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. Y \<inter> set (take k l) = {} \<and> k < length l \<and> k \<le> i)))" by auto
-            then obtain k where "k \<le> length l \<and> set (take k l) \<subset> B \<and> (\<nexists>j. j > k \<and> j < length l \<and>  (set (take k l)) \<subset> B) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>i. Y \<inter> set (take i l) = {} \<and> i < length l \<and> i \<le> k))" by auto
+            then obtain B where B_prop: "maximum_weight_set c B \<and> (\<exists>i. i < length l \<and> set (take i l) \<subseteq> B \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> B) \<and> 
+(\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i)))" by auto
+            then obtain k where k_prop: "k < length l \<and> set (take k l) \<subseteq> B \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and>  (set (take j l)) \<subseteq> B) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>i. set (take i l) \<subseteq> Y \<and> i < length l \<and> ((\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y))  \<and> i \<le> k))" by auto
             have "maximal (\<lambda>Z. Z \<in> F) B" using maximum_weight_prop assum3 B_prop by simp
             have "B \<in> F" using B_prop unfolding maximum_weight_set_def by simp
+            then have "B \<subseteq> E" using ss_assum unfolding set_system_def by simp
             have "B \<noteq> ?A" using assum4 B_prop by auto
+            have "?A \<subseteq> E" using \<open>?A \<in> F\<close> ss_assum unfolding set_system_def by auto
             show False
-            proof -
-              have ""
-            (*proof (cases "B = {}")
+            proof (cases "B = {}")
               case True
               then have "?A \<noteq> {}" using \<open>B \<noteq> ?A\<close> by simp
               then have "c ?A > c B" using assum3 weight_func_empty \<open>?A \<in> F\<close> True by simp
@@ -397,52 +406,116 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i \<le
               then have "?A \<noteq> {}" using assum3 \<open>B \<in> F\<close> greedy_algo_nonempty by simp
               have "l \<noteq> []" using l_prop False by auto
               show ?thesis
-              proof (cases "\<forall>i. i \<le> length l \<longrightarrow> B \<inter> set (take i l) = {}")
-                case True
-                have "{} \<subseteq> B" by simp
-                have "set l = ?A" using k_prop by simp
-                have "l \<noteq> []" using \<open>?A \<noteq> {}\<close> k_prop by auto
-                then obtain x where "(nth k 0) = x" 
-                  by simp
-                then have "x \<in> ?A" using k_prop \<open>set k = ?A\<close> 
-                  by (metis \<open>k \<noteq> []\<close> length_greater_0_conv nth_mem)
-                have "length k > 0" using \<open>k \<noteq> []\<close> by simp
-                then have "length k \<ge> 1" using \<open>k \<noteq> []\<close> 
-                  using linorder_le_less_linear by auto
-                have "x \<notin> B" 
-                proof 
-                  assume "x \<in> B" 
-                  then have "{x} = set (take 1 k)" using \<open>(nth k 0) = x\<close> first_element_set \<open>k \<noteq> []\<close> by auto
-                  then have "set (take 1 k) \<inter> B \<noteq> {}" using \<open>x \<in> B\<close> by auto
-                  then show False using True \<open>length k \<ge> 1\<close> by auto
+              proof -
+                have "set l = ?A" using l_prop by simp
+                have "l \<noteq> []" using \<open>?A \<noteq> {}\<close> l_prop by auto
+                have "(nth l k) \<notin> B"
+                proof
+                  assume assum5: "(nth l k) \<in> B"
+                  have set_prop1: "(set (take k l)) \<union> {nth l (k)} = set (take (k+1) l)" using set_take_union_nth k_prop by auto
+                  have "set (take k l) \<union> {nth l k} \<subseteq> B" using k_prop assum5 by simp
+                  then have set_prop2: "set (take (k+1) l) \<subseteq> B" using set_prop1 by blast
+                  have "k + 1 > k" by simp
+                  have "k + 1 \<noteq> length l"
+                  proof
+                    assume "k + 1 = length l"
+                    then have "set (take (length l) l) \<subseteq> B" using set_prop2 by simp
+                    show False
+                    proof (cases "set (take (length l) l) = B")
+                      case True
+                      then have "?A = B" using \<open>set l = ?A\<close> by simp
+                      then show ?thesis using B_prop assum4 by simp
+                    next
+                      case False
+                      then have "set (take (length l) l) \<subset> B" using set_prop2 \<open>k + 1 = length l\<close> by fastforce
+                      then have "?A \<subset> B" using \<open>set l = ?A\<close> by simp
+                      then have "?A \<inter> B \<noteq> {}" using \<open>?A \<noteq> {}\<close> \<open>B \<noteq> {}\<close> by auto 
+                      then show ?thesis using greedy_algo_maximal assum3 B_prop \<open>?A \<subset> B\<close> by auto
+                    qed
+                  qed
+                  then have "k + 1 < length l" using k_prop by simp
+                  then show False using set_prop2 k_prop by simp
                 qed
-                have "x \<in> E" using \<open>x \<in> ?A\<close> \<open>?A \<subseteq> E\<close> by auto
-                then have "x \<in> E - B" using \<open>x \<notin> B\<close> by simp
-                have "{x} = set (take 1 k)" using \<open>(nth k 0) = x\<close> first_element_set \<open>k \<noteq> []\<close> by auto
-                also have "... \<in> F" using k_prop \<open>length k \<ge> 1\<close> by simp
-                finally have "{x} \<in> F" by simp
-                then have "{} \<union> {x} \<in> F" by simp
-                then have "(\<exists>y. y \<in> B - {} \<and> {} \<union> {y} \<in> F \<and> (B - {y}) \<union> {x} \<in> F)" using assum2 
-                  unfolding strong_exchange_property_def using contains_empty_set \<open>B \<in> F\<close> \<open>x \<in> E - B\<close>
-                    \<open>maximal (\<lambda>Z. Z \<in> F) B\<close> \<open>{} \<subseteq> B\<close> \<open>{} \<union> {x} \<in> F\<close> by blast
-                then obtain y where y_prop: "y \<in> B - {} \<and> {} \<union> {y} \<in> F \<and> (B - {y}) \<union> {x} \<in> F" by auto
+                let ?x = "nth l k"
+                have "?x \<in> ?A" using \<open>l \<noteq> []\<close> \<open>set l = ?A\<close> 
+                  by (metis k_prop nth_mem)
+                have "?x \<in> E" using \<open>(nth l k) \<in> ?A\<close> \<open>?A \<subseteq> E\<close> by auto
+                then have "?x \<in> E - B" using \<open>?x \<notin> B\<close> by simp
+                have set_prop1: "(set (take k l)) \<union> {?x} = set (take (k+1) l)" using set_take_union_nth k_prop by auto
+                also have "... \<in> F" using k_prop l_prop by simp
+                finally have "(set (take k l)) \<union> {?x} \<in> F" by simp 
+                have "set (take k l) \<in> F" using l_prop k_prop by simp
+                then have "(\<exists>y. y \<in> B - (set (take k l)) \<and> set (take k l) \<union> {y} \<in> F \<and> (B - {y}) \<union> {?x} \<in> F)" using assum2 
+                  unfolding strong_exchange_property_def using  \<open>B \<in> F\<close> \<open>?x \<in> E - B\<close>
+                    \<open>maximal (\<lambda>Z. Z \<in> F) B\<close> k_prop \<open>set (take k l) \<union> {?x} \<in> F\<close> by blast
+                then obtain y where y_prop: "y \<in> B - set (take k l) \<and> (set (take k l)) \<union> {y} \<in> F \<and> (B - {y}) \<union> {?x} \<in> F" by auto
                 then have "y \<in> E" using \<open>B \<subseteq> E\<close> by auto
                 have "y \<in> B" using y_prop by simp
                 have "B - {y} \<subseteq> E" using \<open>B \<subseteq> E\<close> by auto
-                have "{y} \<in> F" using y_prop by simp
-                then have "set (take 0 k) \<union> {y} \<in> F"  by simp
-                then have "c {x} \<ge> c {y}" using \<open>y \<in> E\<close> k_prop \<open>{x} = set (take 1 k)\<close> \<open>(nth k 0) = x\<close>
-                  by auto
-                then have "c ({x} \<union> (B - {y})) \<ge> c ({y} \<union> (B - {y}))" using \<open>{y} \<in> F\<close> \<open>{x} \<in> F\<close>
-set_union_ineq assum3 \<open>B - {y} \<subseteq> E\<close> by blast
-                then have "c ({x} \<union> (B - {y})) \<ge> c B" using \<open>y \<in> B\<close> 
+                have "(B - {y}) \<union> {?x} \<in> F" using y_prop by simp
+                have l_prop2: "(\<forall>i \<le> length l. (\<forall>y \<in> E. set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))"
+                  using l_prop by simp
+                have "k + 1 - 1 = k" by simp
+                have "set (take k l) \<union> {y} \<in> F"  using y_prop by simp
+                then have "set (take ((k + 1) - 1) l) \<union> {y} \<in> F" using \<open>(k + 1) - 1 = k\<close> by fastforce
+                then have "{y} \<union> set (take ((k + 1) - 1) l) \<in> F" by simp
+                then have "k + 1 \<le> length l" using k_prop by simp
+                then have " c {?x} \<ge> c {y}" using \<open>y \<in> E\<close> l_prop2 \<open>set (take ((k + 1) - 1) l) \<union> {y} \<in> F\<close> sorry
+(*No proof for above line! It is quite direct*)
+                have "{?x} \<union> (B - {y}) \<in> F" using y_prop by simp
+                have "(B - {y}) \<union> {y} = B" using \<open>y \<in> B\<close> by auto
+                then have "(B - {y}) \<union> {y} \<in> F" using \<open>B \<in> F\<close> by simp 
+                then have "c ({?x} \<union> (B - {y})) \<ge> c ({y} \<union> (B - {y}))" using
+                      set_union_ineq assum3 \<open>c {?x} \<ge> c {y}\<close> \<open>y \<in> E\<close> \<open>?x \<in> E\<close> \<open>(B - {y}) \<subseteq> E\<close> \<open>{?x} \<union> (B - {y}) \<in> F\<close>  
+                  by (metis sup_commute)
+                then have set_prop: "c ({?x} \<union> (B - {y})) \<ge> c B" using \<open>y \<in> B\<close> 
                   by (simp add: insert_absorb)
-                then show ?thesis sorry
-              next
-                case False
-                then show ?thesis sorry
+                have "maximum_weight_set c ({?x} \<union> (B - {y}))"
+                proof (cases "c ({?x} \<union> (B - {y})) = c B")
+                  case True
+                  then show ?thesis using B_prop \<open>(B - {y}) \<union> {?x} \<in> F\<close> unfolding maximum_weight_set_def by simp
+                next
+                  case False
+                  then have "c ({?x} \<union> (B - {y})) > c B" using set_prop by simp
+                  show ?thesis 
+                  proof (rule ccontr)
+                    assume "\<not> maximum_weight_set c ({?x} \<union> (B - {y}))"
+                    then have "c ({?x} \<union> (B - {y})) \<le> c B" using B_prop \<open>(B - {y}) \<union> {?x} \<in> F\<close> unfolding maximum_weight_set_def by auto
+                    then show False using \<open>c ({?x} \<union> (B - {y})) > c B\<close> by simp
+                  qed
+                qed
+                let ?Y = "{?x} \<union> (B - {y})"
+                have "(\<exists>i. set (take i l) \<subseteq> ?Y \<and> i < length l \<and> ((\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> ?Y))  \<and> i \<le> k)"
+                  using k_prop \<open>maximum_weight_set c ?Y\<close> by simp
+                then obtain i where i_prop: "set (take i l) \<subseteq> ?Y \<and> i < length l \<and> ((\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> ?Y))  \<and> i \<le> k" by auto
+                have "set (take k l) \<subseteq> B - {y}" using k_prop y_prop by auto
+                then have "set (take k l) \<subseteq> {?x} \<union> (B - {y})" by auto
+                  have set_prop3: "set (take (k+1) l) \<subseteq> ?Y"
+                  proof
+                    fix x
+                    show "x \<in> set (take (k + 1) l) \<Longrightarrow> x \<in> {l ! k} \<union> (B - {y})"
+                    proof -
+                      assume x_assum: "x \<in> set (take (k + 1) l)"
+                      show "x \<in> {l ! k} \<union> (B - {y})"
+                      proof (cases "x \<in> set (take k l)")
+                        case True
+                        then show ?thesis using \<open>set (take k l) \<subseteq> {?x} \<union> (B - {y})\<close> by auto
+                      next
+                        case False
+                        then have "x \<in> {?x}" using \<open>(set (take k l)) \<union> {?x} = set (take (k + 1) l)\<close> using x_assum by auto
+                        then show ?thesis by simp
+                      qed
+                    qed
+                  qed
+                  have "i < k + 1" using i_prop by simp
+                  then show False using set_prop3 i_prop \<open>k + 1 \<le> length l\<close> by simp
+                qed
               qed
-            qed *)
+            qed
+          qed
+        qed
+      qed
+    
   
 
 
