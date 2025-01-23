@@ -515,6 +515,19 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
           qed
         qed
       qed
+      show "\<forall>c. valid_modular_weight_func c \<longrightarrow>
+        maximum_weight_set c (greedy_algorithm_greedoid {} c) \<Longrightarrow>
+    strong_exchange_property E F "
+      proof -
+        assume assum1: "\<forall>c. valid_modular_weight_func c \<longrightarrow>
+        maximum_weight_set c (greedy_algorithm_greedoid {} c)"
+        show "strong_exchange_property E F"
+        proof (rule ccontr)
+          assume "\<not> strong_exchange_property E F"
+          then have "\<forall>A B x.
+       A \<in> F \<and>
+       B \<in> F \<and> A \<subseteq> B \<and> maximal (\<lambda>B. B \<in> F) B \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<longrightarrow>
+       (\<forall>y. y \<in> B - A \<and> A \<union> {y} \<in> F \<and> B - {y} \<union> {x} \<notin> F)" unfolding strong_exchange_property_def sorry
     
   
 
