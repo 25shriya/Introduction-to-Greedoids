@@ -103,7 +103,7 @@ locale greedoid =
   assumes acc_assum: "accessible E F"
 
 definition strong_exchange_property where "strong_exchange_property E F \<longleftrightarrow> (\<forall>A B x. A \<in> F
-\<and> B \<in> F \<and> A \<subseteq> B \<and> (maximal (\<lambda>B. B \<in> F) B) \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<longrightarrow> (\<exists>y. y \<in> B - A \<and> 
+\<and> B \<in> F \<and> A \<subseteq> B \<and> (maximal (\<lambda>B. B \<in> F) B) \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<longrightarrow> (\<exists>y \<in> B - A. 
 A \<union> {y} \<in> F \<and> (B - {y}) \<union> {x} \<in> F))"
 
 
@@ -117,7 +117,7 @@ locale greedy_algorithm = greedoid +
 context greedy_algorithm
 begin
 
-  definition valid_modular_weight_func::"('a set \<Rightarrow> real) \<Rightarrow> bool" where  "valid_modular_weight_func c = (c ({}) = 0 \<and> (\<forall>X l. X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} | e. e \<in> X} \<and> c (X) = sum (\<lambda>x. real x) l))"
+  definition valid_modular_weight_func::"('a set \<Rightarrow> real) \<Rightarrow> bool" where  "valid_modular_weight_func c = (c ({}) = 0 \<and> (\<forall>X l. X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} | e. e \<in> X} \<and> c (X) = sum (\<lambda>x. x) l))"
 
   definition "maximum_weight_set c X = (X \<in> F \<and> (\<forall> Y \<in> F. c X \<ge> c Y))"
 
@@ -224,6 +224,10 @@ qed
 qed
 qed
 
+lemma greedy_algo_best_candidate: assumes "valid_modular_weight_func c"
+  shows "find_best_candidate c (greedy_algorithm_greedoid {} c) = None"
+  using greedy_algo_term sorry
+
 lemma max_weight_exists: assumes "greedoid E F" "valid_modular_weight_func c"
   shows "\<exists>F'. maximum_weight_set c F'"
 proof -
@@ -300,18 +304,84 @@ proof -
     qed
   qed
 
-lemma valid_weight_prop: assumes "X \<subset> Y" "Y \<subseteq> E" "valid_modular_weight_func c" 
+lemma valid_weight_prop: assumes "X \<subset> Y" "valid_modular_weight_func c" "Y \<noteq> {}" "X \<in> F"
+"Y \<in> F"
   shows "c Y > c X"
-  sorry
+proof (cases "X = {}")
+  case True
+  then show ?thesis using assms unfolding valid_modular_weight_func_def by auto
+next
+  case False
+  then have "c X > 0" using assms unfolding valid_modular_weight_func_def by auto
+  let ?l1 = "{c {e} | e. e \<in> X}"
+  let ?l2 = "{c {e} | e. e \<in> Y}"
+  let ?l3 = "{c {e} | e. e \<in> Y - X}"
+  have X_val: "c X = sum (\<lambda>x. x) ?l1" using assms unfolding valid_modular_weight_func_def by auto
+  have Y_val: "c Y = sum (\<lambda>x. x) ?l2" using assms unfolding valid_modular_weight_func_def by auto
+  have "Y - X \<noteq> {}" using assms False by simp
+  then have "?l3 \<noteq> {}" using assms unfolding valid_modular_weight_func_def by auto
+  have "finite E" using ss_assum unfolding set_system_def by simp
+  have "Y \<subseteq> E" using assms ss_assum unfolding set_system_def by simp
+  then have "finite Y" using finite_subset \<open>finite E\<close> by auto
+  then have "finite (Y - X)" using finite_subset by auto
+  then have "finite ?l3" using assms unfolding valid_modular_weight_func_def by auto
+  have "?l2 = ?l1 \<union> ?l3" using assms unfolding valid_modular_weight_func_def by auto
+  then have "sum (\<lambda>x. x) ?l2 = sum (\<lambda>x. x) (?l1 \<union> ?l3)" by simp
+  also have "... = sum (\<lambda>x. x) ?l1 + sum (\<lambda>x. x) ?l3" using assms unfolding valid_modular_weight_func_def by auto
+  finally have prop_one: "sum (\<lambda>x. x) ?l2 = sum (\<lambda>x. x) ?l1 + sum (\<lambda>x. x) ?l3" by simp
+  have "sum (\<lambda>x. x) ?l3 > 0" using \<open>finite ?l3\<close> \<open>?l3 \<noteq> {}\<close>  assms unfolding valid_modular_weight_func_def by auto
+  then have "sum (\<lambda>x. x) ?l2 > sum (\<lambda>x. x) ?l1" using assms unfolding valid_modular_weight_func_def by auto
+  then show ?thesis using X_val Y_val by simp
+qed
 
-lemma maximum_weight_prop: assumes "valid_modular_weight_func c" "maximum_weight_set c X"
+lemma maximum_weight_prop: assumes "valid_modular_weight_func c" "maximum_weight_set c X" "X \<noteq> {}"
   shows "maximal (\<lambda>X. X \<in> F) X"
-  sorry
+  unfolding maximal_def
+proof
+  show "X \<in> F" using assms unfolding maximum_weight_set_def by simp
+  show "\<nexists>Xa. X \<subset> Xa \<and> Xa \<in> F"
+  proof
+    assume "\<exists>Xa. X \<subset> Xa \<and> Xa \<in> F"
+    then obtain Y where Y_prop: "X \<subset> Y \<and> Y \<in> F" by auto
+    then have "Y \<noteq> {}" using assms(3) by auto
+    then have "c Y > c X" using valid_weight_prop assms(1) assms(3) Y_prop \<open>X \<in> F\<close> by auto
+    then show False using assms(2) Y_prop unfolding maximum_weight_set_def by auto
+  qed
+qed
+
+
 
 lemma greedy_algo_maximal: assumes "valid_modular_weight_func c" 
-"\<exists>B. maximum_weight_set c B \<and> (greedy_algorithm_greedoid {} c) \<inter> B \<noteq> {}" 
+"maximum_weight_set c B " " (greedy_algorithm_greedoid {} c) \<inter> B \<noteq> {}" 
 shows "\<not> ((greedy_algorithm_greedoid {} c) \<subset> B)"
-  sorry
+proof
+  assume assum1: "greedy_algorithm_greedoid {} c \<subset> B"
+  let ?A = "greedy_algorithm_greedoid {} c"
+  have "B \<in> F" using assms unfolding maximum_weight_set_def by auto
+  have "?A \<in> F" using assms(1) greedy_algo_in_F by simp
+  have "finite E" using ss_assum unfolding set_system_def by simp
+  have "B \<subseteq> E" using \<open>B \<in> F\<close> using ss_assum unfolding set_system_def by simp
+  then have "finite B" using \<open>finite E\<close> finite_subset by auto
+  have "B \<noteq> {}" using assms by auto
+  then have "card ?A < card B" using \<open>finite B\<close> assum1 psubset_card_mono by auto
+  then have "\<exists>y \<in> B - ?A. ?A \<union> {y} \<in> F" using third_condition \<open>?A \<in> F\<close> \<open>B \<in> F\<close> by simp
+  then obtain y where y_prop: "y \<in> B - ?A" "?A \<union> {y} \<in> F" by auto
+    let ?Y = "{y | y. y \<in> B - ?A \<and> ?A \<union> {y} \<in> F}"
+    have "y \<in> ?Y" using y_prop by simp
+    have "finite ?Y" using \<open>finite B\<close> by simp
+    have "?Y \<noteq> {}" using \<open>y \<in> ?Y\<close> by auto
+    let ?l1 = "{c {e} | e. e \<in> ?Y}"
+    have "finite ?l1" using assms(1) unfolding valid_modular_weight_func_def by auto
+    have "?l1 \<noteq> {}" using assms(1) unfolding valid_modular_weight_func_def by auto
+    then have "Max ?l1 \<in> ?l1" using Max_in \<open>finite ?l1\<close> by auto
+    then have "\<forall>x. x\<in> ?l1 \<longrightarrow> x \<le> Max ?l1" using \<open>finite ?l1\<close> by auto
+    then obtain e where "e \<in> ?Y" "c {e} = Max ?l1" using \<open>finite ?l1\<close> \<open>finite ?Y\<close> \<open>Max ?l1 \<in> ?l1\<close>
+      by auto
+    have "find_best_candidate c ?A = Some e" unfolding find_best_candidate_def
+      sorry
+    then show False using greedy_algo_best_candidate assms by auto
+  qed
+
 
 lemma weight_func_empty: assumes "X \<in> F" "valid_modular_weight_func c" "X \<noteq> {}"
   shows "c X > c {}" using assms unfolding valid_modular_weight_func_def by auto
@@ -325,6 +395,8 @@ lemma set_union_ineq: assumes "valid_modular_weight_func c" "e \<in> E" "f \<in>
 "{e} \<union> Z \<in> F" "{f} \<union> Z \<in> F"
 shows "c ({e} \<union> Z) \<ge> c ({f} \<union> Z)"
   sorry
+
+
 
 lemma exists_maximal_weight_set: assumes "\<not> maximum_weight_set c (greedy_algorithm_greedoid {} c)" 
 "valid_modular_weight_func c" "greedoid E F"
@@ -390,7 +462,6 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
             then obtain B where B_prop: "maximum_weight_set c B \<and> (\<exists>i. i < length l \<and> set (take i l) \<subseteq> B \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> B) \<and> 
 (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i)))" by auto
             then obtain k where k_prop: "k < length l \<and> set (take k l) \<subseteq> B \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and>  (set (take j l)) \<subseteq> B) \<and> (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>i. set (take i l) \<subseteq> Y \<and> i < length l \<and> ((\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y))  \<and> i \<le> k))" by auto
-            have "maximal (\<lambda>Z. Z \<in> F) B" using maximum_weight_prop assum3 B_prop by simp
             have "B \<in> F" using B_prop unfolding maximum_weight_set_def by simp
             then have "B \<subseteq> E" using ss_assum unfolding set_system_def by simp
             have "B \<noteq> ?A" using assum4 B_prop by auto
@@ -444,6 +515,7 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
                 have set_prop1: "(set (take k l)) \<union> {?x} = set (take (k+1) l)" using set_take_union_nth k_prop by auto
                 also have "... \<in> F" using k_prop l_prop by simp
                 finally have "(set (take k l)) \<union> {?x} \<in> F" by simp 
+                have "maximal (\<lambda>Z. Z \<in> F) B" using maximum_weight_prop assum3 \<open>B \<noteq> {}\<close> B_prop by simp
                 have "set (take k l) \<in> F" using l_prop k_prop by simp
                 then have "(\<exists>y. y \<in> B - (set (take k l)) \<and> set (take k l) \<union> {y} \<in> F \<and> (B - {y}) \<union> {?x} \<in> F)" using assum2 
                   unfolding strong_exchange_property_def using  \<open>B \<in> F\<close> \<open>?x \<in> E - B\<close>
@@ -519,17 +591,55 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
         maximum_weight_set c (greedy_algorithm_greedoid {} c) \<Longrightarrow>
     strong_exchange_property E F "
       proof -
-        assume assum1: "\<forall>c. valid_modular_weight_func c \<longrightarrow>
+        assume assum6: "\<forall>c. valid_modular_weight_func c \<longrightarrow>
         maximum_weight_set c (greedy_algorithm_greedoid {} c)"
         show "strong_exchange_property E F"
         proof (rule ccontr)
           assume "\<not> strong_exchange_property E F"
-          then have "\<forall>A B x.
-       A \<in> F \<and>
-       B \<in> F \<and> A \<subseteq> B \<and> maximal (\<lambda>B. B \<in> F) B \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<longrightarrow>
-       (\<forall>y. y \<in> B - A \<and> A \<union> {y} \<in> F \<and> B - {y} \<union> {x} \<notin> F)" unfolding strong_exchange_property_def sorry
-    
-  
+          then have "\<exists>A B x. A \<in> F \<and> maximal (\<lambda>B. B \<in> F) B \<and> A \<subseteq> B \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<and> 
+        (\<forall>y \<in> B - A. \<not> (A \<union> {y} \<in> F \<and> (B - {y}) \<union> {x} \<in> F))" unfolding strong_exchange_property_def by auto
+          then obtain A B x where A_B_x_prop: "A \<in> F \<and> maximal (\<lambda>B. B \<in> F) B \<and> A \<subseteq> B \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<and> 
+        (\<forall>y \<in> B - A. \<not> (A \<union> {y} \<in> F \<and> (B - {y}) \<union> {x} \<in> F))" by auto
+          show False
+          proof (cases "B = {}")
+            case True
+            then have "A = {}" using A_B_x_prop by simp
+            have "maximal (\<lambda>B. B \<in> F) B" using A_B_x_prop by simp
+            then have B_prop: "B \<in> F \<and> (\<nexists>X. X \<in> F \<and> B \<subset> X)" unfolding maximal_def by auto
+            have "{x} \<in> F" using \<open>A = {}\<close> A_B_x_prop by simp
+            have "B \<subset> {x}" using True by auto
+            then show ?thesis using B_prop \<open>{x} \<in> F\<close> by simp
+          next
+            case False
+            then show ?thesis
+            proof (cases "B = A")
+              case True
+              then have "maximal (\<lambda>B. B \<in> F) A" using A_B_x_prop by simp
+              then have A_prop: "A \<in> F \<and> (\<nexists>X. X \<in> F \<and> A \<subset> X)" unfolding maximal_def by auto
+              have "x \<notin> A" using A_B_x_prop by auto
+              then have "A \<subset> A \<union> {x}" by auto
+              then show ?thesis using A_prop A_B_x_prop by simp
+            next
+              case False
+              then have "A \<subset> B" using A_B_x_prop by auto
+              have B_prop: "B \<in> F \<and> (\<nexists>X. X \<in> F \<and> B \<subset> X)" using A_B_x_prop unfolding maximal_def by auto
+              then have "B \<subseteq> E" using ss_assum unfolding set_system_def by simp
+              have "finite E" using ss_assum unfolding set_system_def by simp
+              then have "finite B" using \<open>B \<subseteq> E\<close> finite_subset by auto
+              then have "card A < card B" using \<open>A \<subset> B\<close> psubset_card_mono by auto
+              then have "\<exists>y \<in> B - A. A \<union> {y} \<in> F"using B_prop A_B_x_prop third_condition by auto
+              then obtain y where y_prop: "A \<union> {y} \<in> F" "y \<in> B - A" by auto
+              then have "(B - {y})\<union> {x} \<notin> F" using A_B_x_prop by simp
+              let ?Y = "{y | y. y \<in> B - A \<and> A \<union> {y} \<in> F }"
+              have "finite ?Y" using \<open>finite B\<close> by simp
+              have "?Y \<noteq> {}" using y_prop by auto
+
+              then show ?thesis sorry
+            qed
+          qed
+        qed
+      qed
+    qed
 
 
 end
