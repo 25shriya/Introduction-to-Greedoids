@@ -11,74 +11,6 @@ definition closed_under_union where "closed_under_union F \<longleftrightarrow> 
 
 definition maximal where "maximal P Z \<longleftrightarrow> (P Z \<and> (\<nexists> X. X \<supset> Z \<and> P X))"
 
-
-
-lemma accessible_property:
-  assumes "accessible E F"
-  assumes "X \<subseteq> E" "X \<in> F"
-  shows "\<exists>l. set l = X \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l"
-  using assms
-proof -
-  have "set_system E F" using assms(1) unfolding accessible_def by simp
-  then have "finite E" unfolding set_system_def by simp
-  then have "finite X" using finite_subset assms(2) by auto
-  obtain k where "card X = k" using \<open>finite X\<close> by simp 
-  then show ?thesis using assms(3)
-  proof (induct k arbitrary: X rule: less_induct)
-    case (less a)
-    then have "card X = a" by simp
-    have "X \<in> F" by (simp add: less.prems(2))
-    then have "X \<subseteq> E" using \<open>set_system E F\<close> unfolding set_system_def by simp
-    then have "finite X" using \<open>finite E\<close> finite_subset by auto
-    then show ?case
-    proof (cases "a = 0")
-      case True
-      then have "card X = 0" using \<open>card X = a\<close> by simp
-      have "\<not>(infinite X)" using \<open>finite X\<close> by simp        
-      then have "X = {}" using \<open>card X = 0\<close> by simp
-      then obtain l where l_prop: "set l = X" "distinct l" using finite_distinct_list by auto
-      then have "l = []" using l_prop \<open>X = {}\<close> by simp
-      have "{} \<in> F" using assms(1) unfolding accessible_def by simp
-      then have "\<forall>i. i \<le> length [] \<longrightarrow> set (take i l) \<in> F" using l_prop by simp
-      then show ?thesis using \<open>l = []\<close> l_prop by simp
-    next
-      case False
-      then have "X \<noteq> {}" using \<open>card X = a\<close> by auto
-      then have "X \<in> F - {{}}" using \<open>X \<in> F\<close> by simp
-      then obtain x where "x \<in> X" "X - {x} \<in> F" using \<open>X \<in> F\<close> assms(1) unfolding accessible_def by auto
-      have "finite {x}" by simp
-      then have factone: "finite (X - {x})" using \<open>finite X\<close> by simp
-      have "(X - {x}) \<subset>  X" using \<open>x \<in> X\<close> by auto
-      then have "card (X - {x}) < card (X)" by (meson \<open>finite X\<close> psubset_card_mono)
-      then have "card (X - {x}) < a" using \<open>card X = a\<close> by simp
-      then have "\<exists>l. set l = X - {x} \<and> (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" using \<open>X - {x} \<in> F\<close> 
-        using less.hyps by blast 
-      then obtain l where l_prop: "set l = X - {x} \<and> (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" by auto
-      let ?l' = "l @ [x]"
-      have conc1: "distinct ?l'" using l_prop by simp
-      have l_prop2: "set l = X - {x}" using l_prop by simp
-      have "(X - {x}) \<union> {x} = X" using \<open>x \<in> X\<close> by auto
-      then have conc2: "(set ?l') = X" using l_prop2 by simp
-      have prop2: "(\<forall>i. i < length ?l' \<longrightarrow> set (take i ?l') \<in> F)" using l_prop by simp
-      have "set (take (length ?l') ?l') \<in> F" using \<open>set ?l' = X\<close> \<open>X \<in> F\<close> by simp
-      then have "(\<forall>i. i \<le> length ?l' \<longrightarrow> set (take i ?l') \<in> F)" using prop2
-        using antisym_conv2 by blast
-       then show ?thesis using conc1 conc2 by fast
-     qed
-qed
-qed
-
-lemma first_element_set:
-  assumes "l \<noteq> []"
-  shows "{nth l 0} = set (take 1 l)"
-proof -
-  from assms obtain a l' where l_def: "l = a # l'"
-    by (cases l) auto
-  then have "nth l 0 = a" by simp
-  moreover have "take 1 l = [a]" using l_def by simp
-  ultimately show "{nth l 0} = set (take 1 l)" by simp
-qed
-
 lemma set_take_union_nth:
   assumes "i < length l"
   shows "set (take i l) \<union> {nth l i} = set (take (i + 1) l)"
@@ -94,13 +26,256 @@ proof -
 qed
 
 
+lemma accessible_property: assumes "set_system E F" "{} \<in> F"
+  shows "accessible E F \<longleftrightarrow> (\<forall>X. X \<in> F \<longrightarrow> (\<exists>l. set l = X \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l))"
+proof 
+  show "accessible E F \<Longrightarrow>
+    \<forall>X. X \<in> F \<longrightarrow> (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l)"
+  proof -
+    assume "accessible E F"
+    show "\<forall>X. X \<in> F \<longrightarrow> (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l)"
+    proof
+      fix X
+      show "X \<in> F \<longrightarrow> (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l)"
+      proof
+        assume "X \<in> F"
+  have "set_system E F" using assms(1) unfolding accessible_def by simp
+  then have "finite E" unfolding set_system_def by simp
+  have "X \<subseteq> E" using assms \<open>X \<in> F\<close> unfolding set_system_def by auto
+  then have "finite X" using finite_subset \<open>finite E\<close> by auto
+  obtain k where "card X = k" using \<open>finite X\<close> by simp 
+  then show "(\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l)" using assms \<open>X \<in> F\<close> \<open>X \<subseteq> E\<close>
+  proof (induct k arbitrary: X rule: less_induct)
+    case (less a)
+    then have "card X = a" by simp
+    have "X \<in> F" using \<open>X \<in> F\<close> by auto
+    then have "X \<subseteq> E" using \<open>set_system E F\<close> unfolding set_system_def by simp
+    then have "finite X" using \<open>finite E\<close> finite_subset by auto
+    then show ?case
+    proof (cases "a = 0")
+      case True
+      then have "card X = 0" using \<open>card X = a\<close> by simp
+      have "\<not>(infinite X)" using \<open>finite X\<close> by simp        
+      then have "X = {}" using \<open>card X = 0\<close> by simp
+      then obtain l where l_prop: "set l = X" "distinct l" using finite_distinct_list by auto
+      then have "l = []" using l_prop \<open>X = {}\<close> by simp
+      have "{} \<in> F" using assms \<open>accessible E F\<close> unfolding accessible_def by simp
+      then have "\<forall>i. i \<le> length [] \<longrightarrow> set (take i l) \<in> F" using l_prop by simp
+      then show ?thesis using \<open>l = []\<close> l_prop by simp
+    next
+      case False
+      then have "X \<noteq> {}" using \<open>card X = a\<close> by auto
+      then have "X \<in> F - {{}}" using \<open>X \<in> F\<close> by simp
+      then obtain x where "x \<in> X" "X - {x} \<in> F" using \<open>X \<in> F\<close> \<open>accessible E F\<close> unfolding accessible_def by auto
+      have "finite {x}" by simp
+      then have factone: "finite (X - {x})" using \<open>finite X\<close> by simp
+      have "(X - {x}) \<subset>  X" using \<open>x \<in> X\<close> by auto
+      then have "card (X - {x}) < card (X)" by (meson \<open>finite X\<close> psubset_card_mono)
+      then have "card (X - {x}) < a" using \<open>card X = a\<close> by simp 
+      have "X - {x} \<subseteq> E" using \<open>X - {x} \<subset> X\<close> \<open>X \<subseteq> E\<close> by simp
+      then have "\<exists>l. set l = X - {x} \<and> (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" using \<open>X - {x} \<in> F\<close> 
+        using less.hyps \<open>X - {x} \<in> F\<close> \<open>card (X - {x}) < a\<close> assms by simp
+      then obtain l where l_prop: "set l = X - {x} \<and> (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" by auto
+      let ?l' = "l @ [x]"
+      have conc1: "distinct ?l'" using l_prop by simp
+      have l_prop2: "set l = X - {x}" using l_prop by simp
+      have "(X - {x}) \<union> {x} = X" using \<open>x \<in> X\<close> by auto
+      then have conc2: "(set ?l') = X" using l_prop2 by simp
+      have prop2: "(\<forall>i. i < length ?l' \<longrightarrow> set (take i ?l') \<in> F)" using l_prop by simp
+      have "set (take (length ?l') ?l') \<in> F" using \<open>set ?l' = X\<close> \<open>X \<in> F\<close> by simp
+      then have "(\<forall>i. i \<le> length ?l' \<longrightarrow> set (take i ?l') \<in> F)" using prop2
+        using antisym_conv2 by blast
+       then show ?thesis using conc1 conc2 by fast
+     qed
+   qed
+ qed
+qed
+qed
+  show "\<forall>X. X \<in> F \<longrightarrow>
+        (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l) \<Longrightarrow>
+    accessible E F"
+    unfolding accessible_def
+  proof 
+    show "\<forall>X. X \<in> F \<longrightarrow>
+        (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l) \<Longrightarrow>
+    set_system E F" using assms by simp
+    show "\<forall>X. X \<in> F \<longrightarrow>
+        (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l) \<Longrightarrow>
+    {} \<in> F \<and> (\<forall>X. X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F))"
+    proof 
+      show "\<forall>X. X \<in> F \<longrightarrow>
+        (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l) \<Longrightarrow>
+    {} \<in> F" using assms by simp
+      show "\<forall>X. X \<in> F \<longrightarrow>
+        (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l) \<Longrightarrow>
+    \<forall>X. X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F)"
+      proof -
+        assume assum1: "\<forall>X. X \<in> F \<longrightarrow>
+        (\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l)"
+        show "\<forall>X. X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F)"
+        proof
+          fix X
+          show "X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F)"
+          proof
+            assume "X \<in> F - {{}}"
+            then have "X \<noteq> {}" by simp
+            then have "(\<exists>l. set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l)" using assum1 \<open>X \<in> F - {{}}\<close> by simp
+            then obtain l where l_prop: "set l = X \<and> (\<forall>i\<le>length l. set (take i l) \<in> F) \<and> distinct l" by auto
+            then have "l \<noteq> []" using \<open>X \<noteq> {}\<close> by auto
+            then obtain x where "(nth l (length l - 1)) = x" by simp
+            then have "set (take (length l) l) \<in> F" using l_prop by auto
+            have "length l > 0" using \<open>l \<noteq> []\<close> by simp
+            then have "length l - 1 < length l" by simp
+            then have factone: "(set (take (length l - 1) l)) \<union> {nth l (length l - 1)} = set (take (length l) l)" 
+              using set_take_union_nth by fastforce
+            have facttwo: "nth l (length l - 1) \<notin> set (take (length l - 1) l)" 
+            proof
+              assume assum2: "l ! (length l - 1) \<in> set (take (length l - 1) l)"
+              then have "(take (length l - 1)  l) \<noteq> []" by auto
+              then have assum3: "List.member (take (length l - 1) l) (nth l (length l - 1))" using in_set_member \<open>l \<noteq> []\<close>
+                assum2 by fast
+              have "l = (take (length l - 1) l) @ [nth l (length l - 1)]" using \<open>l \<noteq> []\<close> 
+                by (metis Suc_diff_1 \<open>0 < length l\<close> \<open>length l - 1 < length l\<close> order_refl take_Suc_conv_app_nth take_all_iff)
+              then have "\<not> (distinct l)"
+                using assum2 distinct_take not_distinct_conv_prefix by blast
+              then show False using l_prop by simp
+            qed
+            have "set (take (length l - 1) l) \<in> F" using l_prop by simp
+            then have  "((set (take (length l) l)) - {nth l (length l - 1)}) \<in> F" using factone facttwo 
+              by (metis Diff_insert_absorb Un_empty_right Un_insert_right)
+            then have "X - {x} \<in> F" using l_prop \<open>nth l (length l - 1) = x\<close> by simp
+            have "x \<in> X" using l_prop \<open>nth l (length l - 1) = x\<close> in_set_member \<open>l \<noteq> []\<close> by auto
+            then show "\<exists>x\<in>X. X - {x} \<in> F" using \<open>X - {x} \<in> F\<close> by auto
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+    
+
+lemma first_element_set:
+  assumes "l \<noteq> []"
+  shows "{nth l 0} = set (take 1 l)"
+proof -
+  from assms obtain a l' where l_def: "l = a # l'"
+    by (cases l) auto
+  then have "nth l 0 = a" by simp
+  moreover have "take 1 l = [a]" using l_def by simp
+  ultimately show "{nth l 0} = set (take 1 l)" by simp
+qed
+
+
+
+
 locale greedoid =
   fixes E :: "'a set"
   fixes F :: "'a set set"
   assumes contains_empty_set: "{} \<in> F"
   assumes third_condition: "(X \<in> F) \<and> (Y \<in> F) \<and> (card X > card Y) \<Longrightarrow> \<exists>x \<in> X - Y.  Y \<union> {x} \<in> F"
   assumes ss_assum: "set_system E F"
-  assumes acc_assum: "accessible E F"
+
+context greedoid
+begin
+
+lemma greedoid_accessible: assumes "greedoid E F"
+  shows "accessible E F" unfolding accessible_def
+ proof
+   show "set_system E F" using ss_assum assms by auto 
+   show "{} \<in> F \<and> (\<forall>X. X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F))"
+   proof
+     show "{} \<in> F" using contains_empty_set by simp
+     show "\<forall>X. X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F)"
+     proof
+       fix X
+       show "X \<in> F - {{}} \<longrightarrow> (\<exists>x\<in>X. X - {x} \<in> F)"
+       proof
+         assume "X \<in> F - {{}}"
+         then have "X \<subseteq> E" using ss_assum unfolding set_system_def by simp
+         have "X \<noteq> {}" using \<open>X \<in> F - {{}}\<close> by simp
+         have "finite E" using ss_assum unfolding set_system_def by simp
+         then have "finite X" using \<open>X \<subseteq> E\<close> finite_subset by auto    
+         have facttwo: "\<forall>i. i \<ge> 0 \<and> i < card X \<longrightarrow> (\<exists>x \<in> X. (\<exists>Y  Z. Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = i + 1 \<and> card Z = i \<and> (Y - Z) = {x} ))"
+         proof 
+           fix i
+           show "i \<ge> 0 \<and> i < card X \<longrightarrow> (\<exists>x \<in> X. (\<exists>Y  Z. Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = i + 1 \<and> card Z = i \<and> (Y - Z) ={x} ))"
+           proof
+             assume assum2: "0 \<le> i \<and> i < card X"
+             then show "(\<exists>x \<in> X. (\<exists>Y  Z. Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = i + 1 \<and> card Z = i \<and> (Y - Z) = {x} ))" using \<open>X \<in> F - {{}}\<close>
+                 \<open>finite X\<close>
+             proof (induct i arbitrary: X rule: less_induct)
+               case (less i)
+               then show ?case
+               proof (cases "i = 0")
+                 case True
+                 have 1: "card {} = 0" by simp
+                 have "X \<noteq> {}" using \<open>X \<in> F - {{}}\<close> by simp
+                 then have "card X > card {}" using \<open>finite X\<close> by auto
+                 then have "\<exists>x. x \<in> X - {} \<and> {} \<union> {x} \<in> F" using contains_empty_set \<open>X \<in> F - {{}}\<close> third_condition by blast
+                 then obtain x where x_prop: "x \<in> X - {} \<and> {} \<union> {x} \<in> F" by auto
+                 then have 2: "{x} \<in> F" by simp
+                 have 3: "{x} \<subseteq> X" using x_prop by simp
+                 have 4: "{} \<subset> {x}" by auto
+                 have 5: "card {x} = 0 + 1" by simp
+                 have "card ({x} - {}) = 1" by simp
+                 then show ?thesis using 1 2 3 4 5 contains_empty_set x_prop True by blast
+               next 
+                 case False
+                 then have "i > 0 \<and> i < card X" using \<open>i \<ge> 0 \<and> i < card X\<close> by simp
+                 then have factone: "i - 1 < i" by simp
+                 then have "i - 1 \<ge> 0 \<and> (i - 1) < card X" using \<open>i > 0 \<and> i < card X\<close> by auto
+                 then have "(\<exists>x \<in> X. (\<exists>Y  Z. Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = (i - 1) + 1  \<and> card Z = i - 1 \<and> (Y - Z) = {x} ))"
+                   using \<open>finite X\<close> \<open>X \<in> F - {{}}\<close> less.hyps factone by blast
+                 then have "(\<exists>x \<in> X. (\<exists>Y  Z. Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = i \<and> card Z = i - 1 \<and> (Y - Z) = {x} ))"
+                   using factone by simp
+                 then obtain x Y Z where x_Y_Z_prop: "x \<in> X \<and> Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = i \<and> card Z = i - 1 \<and> (Y - Z) = {x}" by auto
+                 then have "card Y < card X" using \<open>i > 0 \<and> i < card X\<close> by simp
+                 have 2: "card Y = i" using x_Y_Z_prop by simp
+                 have "Y \<in> F" using x_Y_Z_prop by simp
+                 then have "\<exists>x. x \<in> X - Y \<and> Y \<union> {x} \<in> F" using third_condition \<open>X \<in> F - {{}}\<close> \<open>card Y < card X\<close> by auto
+                 then obtain y where y_prop: "y \<in> X - Y \<and> Y \<union> {y} \<in> F" by auto
+                 then have "y \<notin> Y" by simp
+                 then have "card (Y \<union> {y}) = card Y + card {y}" using \<open>card Y = i\<close> 
+                   by (metis Nat.add_0_right \<open>0 < i \<and> i < card X\<close> add_Suc_right card_1_singleton_iff card_gt_0_iff card_insert_disjoint insert_is_Un sup_commute)
+                 then have 1: "card (Y \<union> {y}) = i + 1" using \<open>card Y = i\<close> by simp
+                 have 3: "Y \<union> {y} \<subseteq> X" using y_prop x_Y_Z_prop by simp
+                 have 4: "Y \<subset> Y \<union> {y}" using \<open>y \<notin> Y\<close> by auto
+                 then have "((Y \<union> {y}) - Y) = {y}" by auto
+                 then show ?thesis using 1 2 3 4 y_prop x_Y_Z_prop \<open>X \<in> F - {{}}\<close> \<open>finite X\<close>
+                   by (metis Diff_iff)
+               qed
+             qed
+           qed
+         qed
+         have "card X \<noteq> 0" using \<open>X \<noteq> {}\<close> \<open>finite X\<close> by simp
+         then have "card X - 1 < card X" by simp
+         have "card X - 1 \<ge> 0" by simp
+         then have "(\<exists>x \<in> X. (\<exists>Y  Z. Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = (card X - 1) + 1 \<and> card Z = card X - 1 \<and> (Y - Z) = {x} ))"
+           using \<open>card X - 1 < card X\<close> facttwo by blast
+         then obtain x Y Z where x_Y_Z_prop: "x \<in> X \<and> Y \<in> F \<and> Z \<in> F \<and> Y \<subseteq> X \<and> Z \<subset> Y \<and> card Y = (card X - 1) + 1 \<and> card Z = card X - 1 \<and> (Y - Z) = {x}"
+           by auto
+         then have "card Y = card X" using \<open>card X - 1 < card X\<close> by simp
+         have "Y \<subseteq> X" using x_Y_Z_prop by simp
+         then have "Y = X" using x_Y_Z_prop \<open>finite X\<close> \<open>card Y = card X\<close> 
+           using card_subset_eq by blast
+         have "Y - {x} = Z" using x_Y_Z_prop by auto
+         then have "X - {x} = Z" using \<open>Y = X\<close> by simp
+         also have "... \<in> F" using x_Y_Z_prop by simp
+         finally have "X - {x} \<in> F" by simp
+         then show "\<exists>x\<in>X. X - {x} \<in> F" using x_Y_Z_prop by auto
+       qed
+     qed
+   qed
+ qed
+                
+              
+          
+       
+         
+
+
+end
 
 definition strong_exchange_property where "strong_exchange_property E F \<longleftrightarrow> (\<forall>A B x. A \<in> F
 \<and> B \<in> F \<and> A \<subseteq> B \<and> (maximal (\<lambda>B. B \<in> F) B) \<and> x \<in> E - B \<and> A \<union> {x} \<in> F \<longrightarrow> (\<exists>y \<in> B - A. 
@@ -300,9 +475,26 @@ proof -
     qed
     next 
       case (2 x)
-      then show ?case sorry
-    qed
+      fix x
+      show "\<forall>y. (y, x) \<in> measure measure_func \<longrightarrow>
+             greedy_algorithm_greedoid {} c \<in> F \<Longrightarrow>
+         greedy_algorithm_greedoid {} c \<in> F"
+      proof -
+        assume assum1: "\<forall>y. (y, x) \<in> measure measure_func \<longrightarrow>
+             greedy_algorithm_greedoid {} c \<in> F"
+        then show ?case 
+        proof (cases "\<forall>y. (y, x) \<in> measure measure_func")
+          case True
+          then show ?thesis using assum1 by simp
+        next
+          case False
+          then have "\<exists>y. (y, x) \<notin> measure measure_func" by simp
+          then obtain y where "(y, x) \<notin> measure measure_func" by auto
+          then show ?thesis using assum1 by auto
+        qed
   qed
+qed
+qed
 
 lemma valid_weight_prop: assumes "X \<subset> Y" "valid_modular_weight_func c" "Y \<noteq> {}" "X \<in> F"
 "Y \<in> F"
@@ -388,7 +580,10 @@ lemma weight_func_empty: assumes "X \<in> F" "valid_modular_weight_func c" "X \<
 
 lemma greedy_algo_nonempty: assumes "valid_modular_weight_func c" "X \<in> F" "X \<noteq> {}"
   shows "greedy_algorithm_greedoid {} c \<noteq> {}"
-  sorry
+proof 
+  assume "greedy_algorithm_greedoid {} c = {}"
+
+  then have "find_best_candidate c {} = None" by auto
 
 
 lemma set_union_ineq: assumes "valid_modular_weight_func c" "e \<in> E" "f \<in> E" "c {e} \<ge> c {f}" "Z \<subseteq> E"
@@ -633,7 +828,7 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
               let ?Y = "{y | y. y \<in> B - A \<and> A \<union> {y} \<in> F }"
               have "finite ?Y" using \<open>finite B\<close> by simp
               have "?Y \<noteq> {}" using y_prop by auto
-
+              
               then show ?thesis sorry
             qed
           qed
