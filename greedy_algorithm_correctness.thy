@@ -292,7 +292,7 @@ locale greedy_algorithm = greedoid +
 context greedy_algorithm
 begin
 
-  definition valid_modular_weight_func::"('a set \<Rightarrow> real) \<Rightarrow> bool" where  "valid_modular_weight_func c = (c ({}) = 0 \<and> (\<forall>X l. X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} | e. e \<in> X} \<and> c (X) = sum (\<lambda>x. x) l))"
+  definition valid_modular_weight_func::"('a set \<Rightarrow> real) \<Rightarrow> bool" where  "valid_modular_weight_func c = (c ({}) = 0 \<and> (\<forall>X l. X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} | e. e \<in> X} \<longrightarrow> c (X) = sum (\<lambda>x. x) l \<and> c X > 0))"
 
   definition "maximum_weight_set c X = (X \<in> F \<and> (\<forall> Y \<in> F. c X \<ge> c Y))"
 
@@ -304,82 +304,50 @@ begin
 (*Next two lemmas taken as facts: the best candidate for F' lies in es (list of E), and does not lie in F'.*)
 lemma find_best_candidate_in_es: assumes "F' \<subseteq> E" "find_best_candidate c F' = Some x"
   shows "List.member es x"
-  sorry
+  using assms
+  unfolding find_best_candidate_def
+  apply(induction es)
+   apply auto
+  by (smt (verit, best) member_rec(1) option.case_eq_if option.collapse option.inject)
+
 lemma find_best_candidate_notin_F': assumes "F' \<subseteq> E" "find_best_candidate c F' = Some x"
   shows "x \<notin> F'"
-proof -
-  have "foldr (\<lambda> e acc. if e \<in> F' \<or> \<not> orcl (insert e F') then acc
-                                                      else (case acc of None \<Rightarrow> Some e |
-                                                               Some d \<Rightarrow> (if c {e} > c {d} then Some e
-                                                                          else Some d))) es None = Some x" using assms(2) unfolding find_best_candidate_def by auto
-  then obtain acc where "foldr (\<lambda> e acc. if e \<in> F' \<or> \<not> orcl (insert e F') then acc
-                                                      else (case acc of None \<Rightarrow> Some e |
-                                                               Some d \<Rightarrow> (if c {e} > c {d} then Some e
-                                                                          else Some d))) es acc = Some x" by simp
-  show ?thesis
-    sorry
-qed
 
-function (domintros) greedy_algorithm_greedoid::"'a set \<Rightarrow> ('a set \<Rightarrow> real) \<Rightarrow> 'a set" where "greedy_algorithm_greedoid F' c = (if (E = {} \<or> \<not>(F' \<subseteq> E)) then undefined 
+  using assms
+  unfolding find_best_candidate_def
+apply(induction es)
+   apply auto
+  by (smt (verit, best) member_rec(1) option.case_eq_if option.collapse option.inject)
+
+
+function (domintros) greedy_algorithm_greedoid::"'a set \<Rightarrow> ('a set \<Rightarrow> real) \<Rightarrow> 'a set" where "greedy_algorithm_greedoid F' c = (if (\<not>(F' \<subseteq> E \<and> F' \<in> F)) then undefined 
 else  (case  (find_best_candidate c F') of Some e => greedy_algorithm_greedoid(F' \<union> {the (find_best_candidate c F')}) c | None => F'))"
-proof -
-  show "\<And>P x. (\<And>F' c. x = (F', c) \<Longrightarrow> P) \<Longrightarrow> P" by auto
-  show "\<And>F' c F'a ca.
-       (F', c) = (F'a, ca) \<Longrightarrow>
-       (if E = {} \<or> \<not> F' \<subseteq> E then undefined
-        else case find_best_candidate c F' of None \<Rightarrow> F'
-             | Some e \<Rightarrow>
-                 greedy_algorithm_greedoid_sumC
-                  (F' \<union> {the (find_best_candidate c F')}, c)) =
-       (if E = {} \<or> \<not> F'a \<subseteq> E then undefined
-        else case find_best_candidate ca F'a of None \<Rightarrow> F'a
-             | Some e \<Rightarrow>
-                 greedy_algorithm_greedoid_sumC
-                  (F'a \<union> {the (find_best_candidate ca F'a)}, ca))"
-  proof -
-    fix F' c F'a ca
-    show "(F', c) = (F'a, ca) \<Longrightarrow>
-       (if E = {} \<or> \<not> F' \<subseteq> E then undefined
-        else case find_best_candidate c F' of None \<Rightarrow> F'
-             | Some e \<Rightarrow>
-                 greedy_algorithm_greedoid_sumC
-                  (F' \<union> {the (find_best_candidate c F')}, c)) =
-       (if E = {} \<or> \<not> F'a \<subseteq> E then undefined
-        else case find_best_candidate ca F'a of None \<Rightarrow> F'a
-             | Some e \<Rightarrow>
-                 greedy_algorithm_greedoid_sumC
-                  (F'a \<union> {the (find_best_candidate ca F'a)}, ca))"
-    proof -
-      assume assum1: "(F', c) = (F'a, ca)"
-      then have 1: "F' = F'a"by simp
-      have "c = ca" using assum1 by simp
-      then show ?thesis using 1 by auto
-    qed
-  qed
-qed
+  by pat_completeness auto
 
 lemma greedy_algo_term: shows "All greedy_algorithm_greedoid_dom"
 proof (relation "measure (\<lambda>(F', c). card (E - F'))")
   show " wf (measure (\<lambda>(F', c). card (E - F')))" by (rule wf_measure)
   show "\<And>F' c x2.
-       \<not> (E = {} \<or> \<not> F' \<subseteq> E) \<Longrightarrow>
+       \<not> \<not> (F' \<subseteq> E \<and> F' \<in> F) \<Longrightarrow>
        find_best_candidate c F' = Some x2 \<Longrightarrow>
        ((F' \<union> {the (find_best_candidate c F')}, c), F', c)
        \<in> measure (\<lambda>(F', c). card (E - F'))"
   proof -
     fix F' c x
-    show "\<not> (E = {} \<or> \<not> F' \<subseteq> E) \<Longrightarrow>
+    show "\<not> \<not> (F' \<subseteq> E \<and> F' \<in> F) \<Longrightarrow>
        find_best_candidate c F' = Some x \<Longrightarrow>
        ((F' \<union> {the (find_best_candidate c F')}, c), F', c)
        \<in> measure (\<lambda>(F', c). card (E - F'))"
     proof - 
-      assume assum1: "\<not> (E = {} \<or> \<not> F' \<subseteq> E)"
+      assume assum1: "\<not> \<not> (F' \<subseteq> E \<and> F' \<in> F)"
       show "find_best_candidate c F' = Some x \<Longrightarrow>
     ((F' \<union> {the (find_best_candidate c F')}, c), F', c)
     \<in> measure (\<lambda>(F', c). card (E - F'))"
       proof -
         assume assum2: "find_best_candidate c F' = Some x"
         then have "List.member es x" using find_best_candidate_in_es assum1 by auto
+        then have "es \<noteq> []" 
+          using member_rec(2) by force
         then have "length es > 0" using assum1 set_assum by auto
         then have "x \<in> set es" using in_set_member \<open>List.member es x\<close> assum1 by fast
         then have "x \<in> E" using set_assum by simp
@@ -401,7 +369,7 @@ qed
 
 lemma greedy_algo_best_candidate: assumes "valid_modular_weight_func c"
   shows "find_best_candidate c (greedy_algorithm_greedoid {} c) = None"
-  using greedy_algo_term sorry
+  sorry
 
 lemma max_weight_exists: assumes "greedoid E F" "valid_modular_weight_func c"
   shows "\<exists>F'. maximum_weight_set c F'"
@@ -434,66 +402,80 @@ proof -
   then show ?thesis by auto
 qed
 
+thm "local.greedy_algorithm_greedoid.psimps"
+
 lemma greedy_algo_in_F: 
   assumes "valid_modular_weight_func c"
   shows "(greedy_algorithm_greedoid {} c) \<in> F"
-proof -
-  define measure_func where "measure_func = (\<lambda>(F', c). card (E - F'))"
-  have wf_measure: "wf (measure measure_func)"
-    using greedy_algo_term by simp
-  show ?thesis
-  proof (induction rule: wf_induct[of "measure measure_func"])
-    case 1
-    show ?case
-    proof (cases "E = {} \<or> \<not> F' \<subseteq> E")
-      case True
-      then show ?thesis by simp
-    next
-      case False
-      then obtain e where e_prop: "find_best_candidate c F' = Some e \<or> find_best_candidate c F' = None"
-        by auto
-      have factone: "E \<noteq> {} \<and> F' \<subseteq> E" using False by simp
-      then have "F' \<subseteq> E" by simp
-      show ?thesis
-      proof (cases "find_best_candidate c F' = Some e")
-        case True
-        then have "e \<in> E" 
-          using find_best_candidate_in_es find_best_candidate_notin_F'
-          by (metis False in_set_member set_assum)
-        then have "e \<notin> F'" 
-          using find_best_candidate_notin_F' \<open>F' \<subseteq> E\<close> True by auto
-        have "F' \<union> {e} \<subseteq> E"
-          using `e \<in> E` `F' \<subseteq> E` by auto
-        then show ?thesis by simp
-      next
-        case False
-        then have "find_best_candidate c F' = None" using e_prop by simp
-        then have "greedy_algorithm_greedoid F' c = F'" 
-          by (simp add: factone greedy_algo_term greedy_algorithm_greedoid.psimps)
-        then show ?thesis by simp
-      qed
-    qed
-    next 
-      case (2 x)
-      fix x
-      show "\<forall>y. (y, x) \<in> measure measure_func \<longrightarrow>
-             greedy_algorithm_greedoid {} c \<in> F \<Longrightarrow>
-         greedy_algorithm_greedoid {} c \<in> F"
+proof (cases "find_best_candidate c {} = None")
+  case True
+  then have "greedy_algorithm_greedoid {} c = {}" using greedy_algorithm_greedoid.psimps greedy_algo_term contains_empty_set  by simp
+  then show ?thesis using contains_empty_set by simp
+next
+  case False
+  then obtain e where "find_best_candidate c {} = Some e" by auto
+  define greedy_in_F::"'a set \<Rightarrow> ('a set \<Rightarrow> real) \<Rightarrow> bool" where "greedy_in_F = (\<lambda>F' c'. (greedy_algorithm_greedoid F' c') \<in> F)"
+  have "greedy_algorithm_greedoid_dom ({}, c)" using greedy_algo_term by simp
+  then have "greedy_algorithm_greedoid_dom ({}, c) \<Longrightarrow> (\<And>F' c.
+    greedy_algorithm_greedoid_dom (F', c) \<Longrightarrow>
+    (\<And>x2. \<not> \<not> F' \<subseteq> E \<and> F' \<in> F \<Longrightarrow>
+           find_best_candidate c F' = Some x2 \<Longrightarrow>
+           (greedy_in_F (F' \<union> {the (find_best_candidate c F')})) c) \<Longrightarrow>
+    greedy_in_F F' c) \<Longrightarrow> greedy_in_F {} c" using greedy_algorithm_greedoid.pinduct using \<open>greedy_in_F = (\<lambda>F' c'. (greedy_algorithm_greedoid F' c') \<in> F)\<close> by metis
+  then have "(\<And>F' c.
+    greedy_algorithm_greedoid_dom (F', c) \<Longrightarrow>
+    (\<And>x2. \<not> \<not> F' \<subseteq> E \<and> F' \<in> F \<Longrightarrow>
+           find_best_candidate c F' = Some x2 \<Longrightarrow>
+           (greedy_in_F (F' \<union> {the (find_best_candidate c F')})) c) \<Longrightarrow>
+    greedy_in_F F' c) \<Longrightarrow> greedy_in_F {} c" using \<open>greedy_algorithm_greedoid_dom({}, c)\<close> by simp
+  have "(\<And>F' c.
+    greedy_algorithm_greedoid_dom (F', c) \<Longrightarrow>
+    (\<And>x2. \<not> \<not> F' \<subseteq> E \<and> F' \<in> F \<Longrightarrow>
+           find_best_candidate c F' = Some x2 \<Longrightarrow>
+           (greedy_in_F (F' \<union> {the (find_best_candidate c F')})) c) \<Longrightarrow>
+    greedy_in_F F' c)"
+  proof -
+    fix F' c
+    show "greedy_algorithm_greedoid_dom (F', c) \<Longrightarrow>
+    (\<And>x2. \<not> \<not> F' \<subseteq> E \<and> F' \<in> F \<Longrightarrow>
+           find_best_candidate c F' = Some x2 \<Longrightarrow>
+           (greedy_in_F (F' \<union> {the (find_best_candidate c F')})) c) \<Longrightarrow>
+    greedy_in_F F' c"
+    proof -
+      assume "greedy_algorithm_greedoid_dom(F', c)"
+      show "(\<And>x2. \<not> \<not> F' \<subseteq> E \<and> F' \<in> F \<Longrightarrow>
+           find_best_candidate c F' = Some x2 \<Longrightarrow>
+           (greedy_in_F (F' \<union> {the (find_best_candidate c F')})) c) \<Longrightarrow>
+    greedy_in_F F' c"
       proof -
-        assume assum1: "\<forall>y. (y, x) \<in> measure measure_func \<longrightarrow>
-             greedy_algorithm_greedoid {} c \<in> F"
-        then show ?case 
-        proof (cases "\<forall>y. (y, x) \<in> measure measure_func")
+        assume "(\<And>x2. \<not> \<not> F' \<subseteq> E \<and> F' \<in> F \<Longrightarrow>
+           find_best_candidate c F' = Some x2 \<Longrightarrow>
+           (greedy_in_F (F' \<union> {the (find_best_candidate c F')})) c)"
+        have 2: "greedy_algorithm_greedoid F' c = (if \<not> (F' \<subseteq> E \<and> F' \<in> F) then undefined
+ else case find_best_candidate c F' of None \<Rightarrow> F'
+      | Some e \<Rightarrow>
+          greedy_algorithm_greedoid (F' \<union> {the (find_best_candidate c F')}) c)" using \<open>greedy_algorithm_greedoid_dom(F', c)\<close> greedy_algorithm_greedoid.psimps by simp
+        show ?thesis
+        proof (cases "F' \<subseteq> E \<and> F' \<in> F")
           case True
-          then show ?thesis using assum1 by simp
+          then show ?thesis
+          proof (cases "find_best_candidate c F' = None")
+            case True
+            then have "greedy_algorithm_greedoid F' c = F'" using 2 True \<open>greedy_algorithm_greedoid_dom(F', c)\<close> 
+            then show ?thesis sorry
+          next
+            case False
+            then show ?thesis sorry
+          qed
         next
           case False
-          then have "\<exists>y. (y, x) \<notin> measure measure_func" by simp
-          then obtain y where "(y, x) \<notin> measure measure_func" by auto
-          then show ?thesis using assum1 by auto
+          then show ?thesis using 2 sorry
         qed
-  qed
+    
+  then show ?thesis 
 qed
+    
+  qed
 qed
 
 lemma valid_weight_prop: assumes "X \<subset> Y" "valid_modular_weight_func c" "Y \<noteq> {}" "X \<in> F"
@@ -501,23 +483,35 @@ lemma valid_weight_prop: assumes "X \<subset> Y" "valid_modular_weight_func c" "
   shows "c Y > c X"
 proof (cases "X = {}")
   case True
-  then show ?thesis using assms unfolding valid_modular_weight_func_def by auto
+  then have "c X = 0" using assms unfolding valid_modular_weight_func_def by simp
+  have "Y \<subseteq> E" using assms ss_assum unfolding set_system_def by simp
+  have "finite E" using ss_assum unfolding set_system_def by simp
+  then have "finite Y" using finite_subset \<open>Y \<subseteq> E\<close> by auto
+  let ?l1 = "{c {e} | e. e \<in> Y}"
+  have "finite ?l1" using \<open>finite Y\<close> assms(2) unfolding valid_modular_weight_func_def by simp
+  then have "c Y = sum (\<lambda>x. x) ?l1 \<and> c Y > 0" using assms \<open>Y \<subseteq> E\<close> unfolding valid_modular_weight_func_def by blast
+  then show ?thesis using \<open>c X = 0\<close> unfolding valid_modular_weight_func_def by metis
 next
   case False
-  then have "c X > 0" using assms unfolding valid_modular_weight_func_def by auto
-  let ?l1 = "{c {e} | e. e \<in> X}"
-  let ?l2 = "{c {e} | e. e \<in> Y}"
+   have "X \<subseteq> E" using assms ss_assum unfolding set_system_def by simp
+  have "finite E" using ss_assum unfolding set_system_def by simp
+  then have "finite X" using finite_subset \<open>X \<subseteq> E\<close> by auto
+  let ?l2 = "{c {e} | e. e \<in> X}"
+  have "finite ?l2" using \<open>finite X\<close> assms(2) unfolding valid_modular_weight_func_def by simp
+  then have "c X = sum (\<lambda>x. x) ?l2 \<and> c X > 0" using assms \<open>X \<subseteq> E\<close> False unfolding valid_modular_weight_func_def by blast
+   have "Y \<subseteq> E" using assms ss_assum unfolding set_system_def by simp
+  have "finite E" using ss_assum unfolding set_system_def by simp
+  then have "finite Y" using finite_subset \<open>Y \<subseteq> E\<close> by auto
+  let ?l1 = "{c {e} | e. e \<in> Y}"
+  have "finite ?l1" using \<open>finite Y\<close> assms(2) unfolding valid_modular_weight_func_def by simp
+  then have "c Y = sum (\<lambda>x. x) ?l1 \<and> c Y > 0" using assms \<open>Y \<subseteq> E\<close> unfolding valid_modular_weight_func_def by blast
   let ?l3 = "{c {e} | e. e \<in> Y - X}"
-  have X_val: "c X = sum (\<lambda>x. x) ?l1" using assms unfolding valid_modular_weight_func_def by auto
-  have Y_val: "c Y = sum (\<lambda>x. x) ?l2" using assms unfolding valid_modular_weight_func_def by auto
   have "Y - X \<noteq> {}" using assms False by simp
   then have "?l3 \<noteq> {}" using assms unfolding valid_modular_weight_func_def by auto
-  have "finite E" using ss_assum unfolding set_system_def by simp
-  have "Y \<subseteq> E" using assms ss_assum unfolding set_system_def by simp
-  then have "finite Y" using finite_subset \<open>finite E\<close> by auto
-  then have "finite (Y - X)" using finite_subset by auto
-  then have "finite ?l3" using assms unfolding valid_modular_weight_func_def by auto
-  have "?l2 = ?l1 \<union> ?l3" using assms unfolding valid_modular_weight_func_def by auto
+  have "(Y - X) \<subseteq> E" using \<open>Y \<subseteq> E\<close> by auto
+  then have "finite (Y - X)" using \<open>finite Y\<close> finite_subset by auto
+  (*then have "finite ?l3" using assms(2) \<open>Y - X \<noteq> {}\<close> \<open>(Y - X) \<subseteq> E\<close> unfolding valid_modular_weight_func_def by blast *)
+  have "?l2 = ?l1 \<union> ?l3" using assms unfolding valid_modular_weight_func_def by fastforce
   then have "sum (\<lambda>x. x) ?l2 = sum (\<lambda>x. x) (?l1 \<union> ?l3)" by simp
   also have "... = sum (\<lambda>x. x) ?l1 + sum (\<lambda>x. x) ?l3" using assms unfolding valid_modular_weight_func_def by auto
   finally have prop_one: "sum (\<lambda>x. x) ?l2 = sum (\<lambda>x. x) ?l1 + sum (\<lambda>x. x) ?l3" by simp
@@ -563,8 +557,8 @@ proof
     have "finite ?Y" using \<open>finite B\<close> by simp
     have "?Y \<noteq> {}" using \<open>y \<in> ?Y\<close> by auto
     let ?l1 = "{c {e} | e. e \<in> ?Y}"
-    have "finite ?l1" using assms(1) unfolding valid_modular_weight_func_def by auto
-    have "?l1 \<noteq> {}" using assms(1) unfolding valid_modular_weight_func_def by auto
+    have "finite ?l1" using assms(1) unfolding valid_modular_weight_func_def sorry
+    have "?l1 \<noteq> {}" using assms(1) unfolding valid_modular_weight_func_def sorry
     then have "Max ?l1 \<in> ?l1" using Max_in \<open>finite ?l1\<close> by auto
     then have "\<forall>x. x\<in> ?l1 \<longrightarrow> x \<le> Max ?l1" using \<open>finite ?l1\<close> by auto
     then obtain e where "e \<in> ?Y" "c {e} = Max ?l1" using \<open>finite ?l1\<close> \<open>finite ?Y\<close> \<open>Max ?l1 \<in> ?l1\<close>
@@ -576,14 +570,18 @@ proof
 
 
 lemma weight_func_empty: assumes "X \<in> F" "valid_modular_weight_func c" "X \<noteq> {}"
-  shows "c X > c {}" using assms unfolding valid_modular_weight_func_def by auto
+  shows "c X > c {}" 
+proof -
+  have "c {} = 0" using assms unfolding valid_modular_weight_func_def by simp
+  have "X \<subseteq> E" using assms ss_assum unfolding set_system_def by simp
+  let ?l = "{c {e}| e. e \<in> X}"
+  have "c X = sum (\<lambda>x. x) ?l \<and> c X > 0" using assms \<open>X \<subseteq> E\<close> unfolding valid_modular_weight_func_def by blast
+  then show ?thesis using \<open>c {} = 0\<close> by simp
+qed
 
 lemma greedy_algo_nonempty: assumes "valid_modular_weight_func c" "X \<in> F" "X \<noteq> {}"
   shows "greedy_algorithm_greedoid {} c \<noteq> {}"
-proof 
-  assume "greedy_algorithm_greedoid {} c = {}"
-
-  then have "find_best_candidate c {} = None" by auto
+  sorry
 
 
 lemma set_union_ineq: assumes "valid_modular_weight_func c" "e \<in> E" "f \<in> E" "c {e} \<ge> c {f}" "Z \<subseteq> E"
@@ -600,10 +598,12 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
 (\<forall>Y. maximum_weight_set c Y \<longrightarrow> (\<exists>k. set (take k l) \<subseteq> Y \<and> k < length l \<and> (\<nexists>j. j > k \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> Y) \<and> k \<le> i))))" 
 proof -
   let ?A = "greedy_algorithm_greedoid {} c"
+  have "accessible E F" using assms(3) greedoid_accessible by simp
+  then have "set_system E F" unfolding accessible_def by simp
   have "?A \<in> F" using greedy_algo_in_F assms(2) by simp
   then have "?A \<subseteq> E" using ss_assum unfolding set_system_def by simp
   then have "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" using 
-accessible_property acc_assum \<open>?A \<in> F\<close> by blast
+accessible_property \<open>accessible E F\<close> \<open>?A \<in> F\<close> \<open>set_system E F\<close> contains_empty_set by blast
   then obtain l where l_prop: "set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> set (take i l) \<in> F) \<and> distinct l" by auto
   have "\<exists>X. maximum_weight_set c X" using max_weight_exists assms(2-3) by simp
   then obtain B where "maximum_weight_set c B" by auto
@@ -620,6 +620,8 @@ accessible_property acc_assum \<open>?A \<in> F\<close> by blast
   then show ?thesis using l_prop \<open>maximum_weight_set c B\<close> fact1 
       by (smt (verit))
 qed
+
+
 
   lemma greedy_algorithm_correctness:
     assumes assum1: "greedoid E F"
@@ -644,7 +646,7 @@ qed
           proof (rule ccontr)
             assume assum4: "\<not> maximum_weight_set c (greedy_algorithm_greedoid {} c)"
             let ?A = "greedy_algorithm_greedoid {} c"
-            have "accessible E F" using acc_assum by auto 
+            have "accessible E F" using assms greedoid_accessible by auto 
             have "?A \<in> F" using greedy_algo_in_F using assum3 by simp
             then have "\<exists>l. set l = (greedy_algorithm_greedoid {} c) \<and>  (\<forall>i. i \<le> length l \<longrightarrow> (set (take i l) \<in> F \<and> (\<forall>y. y \<in> E \<and> set (take (i - 1) l) \<union> {y} \<in> F \<longrightarrow> c {nth l i} \<ge> c {y}))) \<and> 
 distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < length l \<and> set (take i l) \<subseteq> X \<and> (\<nexists>j. j > i \<and> j \<le> length l \<and> (set (take j l)) \<subseteq> X) \<and> 
@@ -828,7 +830,51 @@ distinct l \<and> (\<exists>X. maximum_weight_set c X \<and> (\<exists>i. i < le
               let ?Y = "{y | y. y \<in> B - A \<and> A \<union> {y} \<in> F }"
               have "finite ?Y" using \<open>finite B\<close> by simp
               have "?Y \<noteq> {}" using y_prop by auto
-              
+              define c::"'a set \<Rightarrow> real" where "c S = (if (S \<subseteq> B - ?Y \<and> S \<noteq> {}) then (card S * 2) else if (S \<subseteq> ?Y \<union> {x} \<and> S \<noteq> {}) then (card S) else 0)"
+              have "valid_modular_weight_func c"
+                unfolding valid_modular_weight_func_def
+              proof
+                show "c {} = 0" 
+                  by (simp add: \<open>c \<equiv> \<lambda>S. real (if S \<subseteq> B - {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<and> S \<noteq> {} then card S * 2 else if S \<subseteq> {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<union> {x} \<and> S \<noteq> {} then card S else 0)\<close>)
+                show "\<forall>X l. X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} |e. e \<in> X} \<longrightarrow> c X = \<Sum> l \<and> 0 < c X"
+                proof (rule, rule)
+                  fix X l
+                  show "X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} |e. e \<in> X} \<longrightarrow> c X = \<Sum> l \<and> 0 < c X"
+                  proof
+                    assume X_assum: "X \<subseteq> E \<and> X \<noteq> {} \<and> l = {c {e} |e. e \<in> X}"
+                    then show "c X = \<Sum> l \<and> 0 < c X" using \<open>c \<equiv> \<lambda>S. real (if S \<subseteq> B - {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<and> S \<noteq> {} then card S * 2 else if S \<subseteq> {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<union> {x} \<and> S \<noteq> {} then card S else 0)\<close>
+                    proof (cases "X \<subseteq> B - ?Y")
+                      case True
+                      then have "finite X" using \<open>finite B\<close> finite_subset by auto
+                      have "c X = card X * 2" using \<open>c \<equiv> \<lambda>S. real (if S \<subseteq> B - {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<and> S \<noteq> {} then card S * 2 else if S \<subseteq> {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<union> {x} \<and> S \<noteq> {} then card S else 0)\<close> True by simp
+                      have "finite l" using X_assum \<open>finite X\<close> by simp
+                      have "\<forall>e. e\<in> X \<longrightarrow> c {e} = 2"
+                      proof 
+                        fix e
+                        show "e \<in> X \<longrightarrow> c {e} = 2"
+                        proof
+                          assume "e \<in> X"
+                          then have "{e} \<subseteq> B - ?Y" using True by auto
+                          then have "c {e} = (card {e}) * 2 " using \<open>c \<equiv> \<lambda>S. real (if S \<subseteq> B - {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<and> S \<noteq> {} then card S * 2 else if S \<subseteq> {y |y. y \<in> B - A \<and> A \<union> {y} \<in> F} \<union> {x} \<and> S \<noteq> {} then card S else 0)\<close> by simp
+                          then show "c {e} = 2" by simp
+                        qed
+                      qed
+                      then have 2: "\<forall>x. x \<in> l \<longrightarrow> x = 2" using X_assum by auto
+                      have "card l = card X"
+                      proof -
+                         have 1: "\<forall>e. e \<in> X \<longrightarrow> c {e} \<in> l" using X_assum by auto
+                         then have "\<forall>x. x \<in> l \<longrightarrow> (\<exists>e. e \<in> X \<and> c {e} = x)" using X_assum by auto
+                         then show "card l = card X" using 1 sorry
+                       qed
+                      then have "\<Sum> l = card X * 2" using X_assum \<open>finite X\<close> by blast
+
+                      then show ?thesis sorry
+                    next
+                      case False
+                      then show ?thesis sorry
+                    qed
+
+
               then show ?thesis sorry
             qed
           qed
