@@ -1,11 +1,9 @@
 theory greedy_algorithm_correctness_alternative
-  imports Main Complex_Main
+  imports Main Complex_Main introduction_to_greedoids
 begin
 
 lemma max_n: "(\<And> n. P n \<Longrightarrow> n \<le> bound) \<Longrightarrow> P (n::nat) \<Longrightarrow> (\<exists> nmax. P nmax \<and> (\<nexists> m. m > nmax \<and> P m))"
   by (metis bounded_Max_nat leD)
-
-definition "set_system E F = (finite E \<and> (\<forall> X \<in> F. X \<subseteq> E))"
 
 definition accessible where "accessible E F \<longleftrightarrow> set_system E F \<and> ({} \<in> F) \<and> (\<forall>X. (X \<in> F - {{}}) \<longrightarrow>
 (\<exists>x \<in> X.  X - {x} \<in> F))"
@@ -1008,7 +1006,7 @@ proof-
 
 
 
-
+ 
 
 
 
